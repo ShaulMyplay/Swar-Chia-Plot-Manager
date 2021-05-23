@@ -1,5 +1,10 @@
 import logging
 import psutil
+import json
+
+import urllib3
+from urllib3 import PoolManager
+from urllib3.util import Retry
 
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -323,6 +328,8 @@ def start_work(job, chia_location, log_directory, drives_free_space):
     pid = process.pid
     logging.info(f'Started process: {pid}')
 
+
+
     logging.info(f'Setting priority level: {nice_val}')
     psutil.Process(pid).nice(nice_val)
     logging.info(f'Set priority level')
@@ -335,6 +342,18 @@ def start_work(job, chia_location, log_directory, drives_free_space):
     job.total_running += 1
     job.total_kicked_off += 1
     job.running_work = job.running_work + [pid]
+
+    # post plot started
+    payload = {'status': 'started', 'job': job.name, 'plot': log_file_path}
+    encoded_data = json.dumps(payload).encode('utf-8')
+    retries = Retry(connect=5, read=2, redirect=5)
+    http = PoolManager(retries=retries)
+    resp = http.request(
+        'POST',
+        'http://127.0.0.1:6000/',
+        body=encoded_data,
+        headers={'Content-Type': 'application/json'})
+
     logging.info(f'Job total running: {job.total_running}')
     logging.info(f'Job running: {job.running_work}')
 
